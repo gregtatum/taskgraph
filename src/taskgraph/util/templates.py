@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import sys
 from typing import Any, Dict, List
 
 from taskgraph.util.copy import deepcopy
@@ -73,6 +74,14 @@ def deep_get(dict_, field):
     return container.get(subfield)
 
 
+def print_key_error(item: str, subs: Dict[str, Any]):
+    """Print a helpful key error to help in debugging taskgraph errors."""
+
+    print("Failed to apply substitutions.", file=sys.stderr)
+    print(" - String:", item, file=sys.stderr)
+    print(" - Substitutions:", subs, file=sys.stderr)
+
+
 def substitute(item: Any, **subs: Dict[str, Any]) -> Any:
     if isinstance(item, list):
         for i in range(len(item)):
@@ -80,11 +89,20 @@ def substitute(item: Any, **subs: Dict[str, Any]) -> Any:
     elif isinstance(item, dict):
         new_dict = {}
         for k, v in item.items():
-            k = k.format(**subs)
+            try:
+                k = k.format(**subs)
+            except KeyError as error:
+                print_key_error(k, subs)
+                raise error
+
             new_dict[k] = substitute(v, **subs)
         item = new_dict
     elif isinstance(item, str):
-        item = item.format(**subs)
+        try:
+            item = item.format(**subs)
+        except KeyError as error:
+            print_key_error(item, subs)
+            raise error
     else:
         item = item
 
